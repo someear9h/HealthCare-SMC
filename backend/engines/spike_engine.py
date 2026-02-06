@@ -113,3 +113,43 @@ def detect_outbreaks():
         "baseline",
         "surge_percent"
     ]]
+
+
+def explain_outbreak(row):
+
+    signal_type = classify_signal(row["indicatorname"])
+
+    return (
+        f"{signal_type}\n"
+        f"In {row['month']}, {row['district']} reported "
+        f"{int(row['total_cases'])} cases of "
+        f"'{row['indicatorname']}'.\n"
+        f"Baseline: {int(row['baseline'])} | "
+        f"Surge: {row['surge_percent']:.1f}%.\n"
+    )
+
+
+
+def classify_signal(indicator):
+
+    indicator = indicator.lower()
+
+    disease_words = [
+        "malaria","dengue","sti","rti",
+        "tuberculosis","death","pneumonia",
+        "syphilis","diarrhea"
+    ]
+
+    activity_words = [
+        "immunisation","vaccination",
+        "sterilization","tested",
+        "screened"
+    ]
+
+    if any(word in indicator for word in disease_words):
+        return "🔴 Disease Signal"
+
+    if any(word in indicator for word in activity_words):
+        return "🟢 Healthcare Activity"
+
+    return "🟠 Operational / Other"
