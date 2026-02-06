@@ -3,3 +3,6 @@ uvicorn
 pandas
 python-dotenv
 pydantic
+streamlit 
+plotly 
+requests
