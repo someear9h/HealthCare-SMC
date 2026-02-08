@@ -58,5 +58,5 @@ htmlcov/
 *.pem
 *.crt
 *.key
-
+*.md
 info.md

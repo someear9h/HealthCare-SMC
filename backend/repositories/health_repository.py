@@ -10,6 +10,7 @@ from sqlalchemy import func
 
 from models.orm import HealthRecord, Facility
 from repositories.base_repository import BaseRepository
+from utils.indicator_normalizer import normalize_indicator_name
 
 
 class HealthRepository(BaseRepository[HealthRecord]):
@@ -29,11 +30,11 @@ class HealthRepository(BaseRepository[HealthRecord]):
         month: str,
         timestamp: Optional[datetime] = None,
     ) -> HealthRecord:
-        """Create health indicator record.
+        """Create health indicator record with normalized indicator name.
 
         Args:
             facility_id: Facility identifier.
-            indicator_name: Name of health indicator.
+            indicator_name: Name of health indicator (will be normalized).
             total_cases: Case count (>= 0).
             month: Month/period identifier.
             timestamp: When recorded (default: now).
@@ -43,9 +44,13 @@ class HealthRepository(BaseRepository[HealthRecord]):
         """
         if timestamp is None:
             timestamp = datetime.utcnow()
+        
+        # Normalize indicator name to prevent data fragmentation
+        normalized_name = normalize_indicator_name(indicator_name)
+        
         return self.create(
             facility_id=facility_id,
-            indicator_name=indicator_name,
+            indicator_name=normalized_name,
             total_cases=total_cases,
             month=month,
             timestamp=timestamp,
@@ -118,14 +123,17 @@ class HealthRepository(BaseRepository[HealthRecord]):
         """Total cases across all facilities for an indicator.
 
         Args:
-            indicator_name: Indicator to sum.
+            indicator_name: Indicator to sum (will be normalized).
 
         Returns:
             Total case count.
         """
+        # Normalize the input indicator name for consistent lookup
+        normalized_name = normalize_indicator_name(indicator_name)
+        
         result = (
             self.db.query(func.sum(HealthRecord.total_cases))
-            .filter(HealthRecord.indicator_name == indicator_name)
+            .filter(HealthRecord.indicator_name == normalized_name)
             .scalar()
         )
         return result or 0

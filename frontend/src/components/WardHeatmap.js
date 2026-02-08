@@ -1,116 +1,297 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  MapContainer,
+  TileLayer,
+  GeoJSON as GeoJSONComponent,
+  Popup,
+} from 'react-leaflet';
+import L from 'leaflet';
 
 const WardHeatmap = () => {
-  const [wards, setWards] = useState([]);
+  const [geoJsonData, setGeoJsonData] = useState(null);
+  const [wardData, setWardData] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Solapur city center
+  const SOLAPUR_CENTER = [17.6599, 75.9064];
+
   useEffect(() => {
-    const fetchWards = async () => {
+    const fetchWardData = async () => {
       try {
         const res = await axios.get('http://localhost:8000/analytics/ward-risk');
-        setWards(res.data.wards || []);
+        const wards = res.data.wards || [];
+        setWardData(wards);
+
+        // Create GeoJSON from ward data
+        // In a real scenario, you'd fetch this from a GeoJSON file or API
+        const features = wards.map((ward, idx) => ({
+          type: 'Feature',
+          properties: {
+            ward_name: ward.ward,
+            risk_level: ward.risk_level,
+            risk_score: ward.risk_score,
+            icu_pressure: ward.icu_pressure,
+            recent_cases: ward.recent_cases,
+          },
+          geometry: {
+            type: 'Point',
+            // Distribute wards in a circle around Solapur center for demo
+            coordinates: [
+              SOLAPUR_CENTER[1] + (Math.random() - 0.5) * 0.2,
+              SOLAPUR_CENTER[0] + (Math.random() - 0.5) * 0.2,
+            ],
+          },
+        }));
+
+        setGeoJsonData({
+          type: 'FeatureCollection',
+          features: features,
+        });
       } catch (error) {
-        console.error('Error fetching wards:', error);
+        console.error('Error fetching ward data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchWards();
+    fetchWardData();
   }, []);
 
-  if (loading) {
-    return <div className="flex justify-center p-4">Loading heatmap...</div>;
-  }
-
-  // Create fake grid layout (6 columns x 3 rows for now)
-  const gridSize = 6;
-  const maxRows = Math.ceil(wards.length / gridSize);
-
-  // Sort by risk_score (descending) for visual impact
-  const sortedWards = [...wards].sort((a, b) => b.risk_score - a.risk_score);
-
-  const getRiskColor = (riskLevel) => {
-    switch (riskLevel) {
-      case 'CRITICAL':
-        return 'bg-red-600';
-      case 'HIGH':
-        return 'bg-orange-500';
-      case 'MEDIUM':
-        return 'bg-yellow-500';
-      case 'LOW':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
-    }
+  /**
+   * Get color based on risk level
+   * 0-25 (Green), 25-50 (Yellow), 50-75 (Orange), 75+ (Red)
+   */
+  const getRiskColor = (riskScore) => {
+    if (riskScore >= 75) return '#dc2626'; // Red
+    if (riskScore >= 50) return '#ea580c'; // Orange
+    if (riskScore >= 25) return '#eab308'; // Yellow
+    return '#22c55e'; // Green
   };
+
+  /**
+   * Get risk level from score
+   */
+  const getRiskLevel = (riskScore) => {
+    if (riskScore >= 75) return 'CRITICAL';
+    if (riskScore >= 50) return 'HIGH';
+    if (riskScore >= 25) return 'MEDIUM';
+    return 'LOW';
+  };
+
+  /**
+   * Style function for GeoJSON features
+   */
+  const onEachFeature = (feature, layer) => {
+    const props = feature.properties;
+    const riskScore = props.risk_score || 0;
+    const color = getRiskColor(riskScore);
+
+    // Style the marker
+    const markerIcon = L.divIcon({
+      className: 'risk-marker',
+      html: `
+        <div style="
+          background-color: ${color};
+          border: 3px solid white;
+          border-radius: 50%;
+          width: 35px;
+          height: 35px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+          font-size: 12px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        ">
+          ${riskScore.toFixed(0)}
+        </div>
+      `,
+      iconSize: [35, 35],
+      iconAnchor: [17, 17],
+    });
+
+    if (layer.setIcon) {
+      layer.setIcon(markerIcon);
+    }
+
+    // Create popup content
+    const popupContent = `
+      <div style="font-family: Arial, sans-serif; min-width: 200px;">
+        <h3 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">
+          ${props.ward_name}
+        </h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 4px 0; color: #666; font-size: 12px;">Risk Level:</td>
+            <td style="padding: 4px 0; color: #333; font-weight: bold; font-size: 12px;">
+              <span style="
+                background-color: ${color};
+                color: white;
+                padding: 2px 6px;
+                border-radius: 3px;
+                display: inline-block;
+              ">
+                ${getRiskLevel(riskScore)}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666; font-size: 12px;">Risk Score:</td>
+            <td style="padding: 4px 0; color: #333; font-weight: bold; font-size: 12px;">
+              ${riskScore.toFixed(1)} / 100
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666; font-size: 12px;">ICU Pressure:</td>
+            <td style="padding: 4px 0; color: #333; font-weight: bold; font-size: 12px;">
+              ${(props.icu_pressure || 0).toFixed(1)}%
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #666; font-size: 12px;">Recent Cases:</td>
+            <td style="padding: 4px 0; color: #333; font-weight: bold; font-size: 12px;">
+              ${props.recent_cases || 0}
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+
+    layer.bindPopup(popupContent);
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center p-6 bg-slate-800 rounded-lg h-96">
+      <p className="text-gray-300">Loading GIS map...</p>
+    </div>;
+  }
 
   return (
     <div className="bg-slate-800 p-6 rounded-lg mb-6 border border-slate-700">
-      <h2 className="text-xl font-bold text-white mb-4">🗺️ Ward Risk Heatmap</h2>
+      <h2 className="text-xl font-bold text-white mb-4">🗺️ Ward Risk GIS Heatmap</h2>
 
-      {sortedWards.length === 0 ? (
-        <p className="text-gray-400">No wards data available.</p>
-      ) : (
-        <div className="space-y-4">
-          {/* Heatmap Grid */}
-          <div className={`grid gap-2 autogrid`} style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}>
-            {sortedWards.map((ward) => (
-              <div
-                key={ward.ward}
-                className={`${getRiskColor(ward.risk_level)} p-4 rounded-lg cursor-pointer hover:scale-105 transition-transform shadow-lg`}
-              >
-                <p className="text-xs font-bold text-white truncate">{ward.ward}</p>
-                <p className="text-lg font-bold text-white">{ward.risk_score.toFixed(1)}</p>
-                <p className="text-xs text-white opacity-80">{ward.risk_level}</p>
-              </div>
-            ))}
+      {/* Map Container */}
+      <div className="rounded-lg overflow-hidden mb-4" style={{ height: '500px' }}>
+        {geoJsonData && (
+          <MapContainer
+            center={SOLAPUR_CENTER}
+            zoom={13}
+            style={{ height: '100%', width: '100%' }}
+          >
+            {/* OpenStreetMap Tile Layer */}
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+
+            {/* GeoJSON Layer with Risk Markers */}
+            <GeoJSONComponent
+              data={geoJsonData}
+              onEachFeature={onEachFeature}
+            />
+          </MapContainer>
+        )}
+      </div>
+
+      {/* Risk Distribution Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div className="bg-slate-700 p-3 rounded border-l-4 border-green-500">
+          <p className="text-xs text-gray-400">LOW</p>
+          <p className="text-2xl font-bold text-green-400">
+            {wardData.filter((w) => w.risk_score < 25).length}
+          </p>
+        </div>
+        <div className="bg-slate-700 p-3 rounded border-l-4 border-yellow-500">
+          <p className="text-xs text-gray-400">MEDIUM</p>
+          <p className="text-2xl font-bold text-yellow-400">
+            {wardData.filter((w) => w.risk_score >= 25 && w.risk_score < 50).length}
+          </p>
+        </div>
+        <div className="bg-slate-700 p-3 rounded border-l-4 border-orange-500">
+          <p className="text-xs text-gray-400">HIGH</p>
+          <p className="text-2xl font-bold text-orange-400">
+            {wardData.filter((w) => w.risk_score >= 50 && w.risk_score < 75).length}
+          </p>
+        </div>
+        <div className="bg-slate-700 p-3 rounded border-l-4 border-red-600">
+          <p className="text-xs text-gray-400">CRITICAL</p>
+          <p className="text-2xl font-bold text-red-400">
+            {wardData.filter((w) => w.risk_score >= 75).length}
+          </p>
+        </div>
+        <div className="bg-slate-700 p-3 rounded border-l-4 border-blue-500">
+          <p className="text-xs text-gray-400">Total Wards</p>
+          <p className="text-2xl font-bold text-blue-400">{wardData.length}</p>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="bg-slate-700 p-4 rounded border border-slate-600">
+        <h3 className="text-sm font-bold text-white mb-3">📊 Legend</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: '25px',
+                height: '25px',
+                borderRadius: '50%',
+                backgroundColor: '#22c55e',
+                border: '3px solid white',
+              }}
+            />
+            <span className="text-xs text-gray-300">Green: 0-25 (LOW)</span>
           </div>
-
-          {/* Legend */}
-          <div className="flex gap-6 mt-6 pt-4 border-t border-slate-600">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded"></div>
-              <span className="text-xs text-gray-300">LOW (0-25)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-              <span className="text-xs text-gray-300">MEDIUM (25-50)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-orange-500 rounded"></div>
-              <span className="text-xs text-gray-300">HIGH (50-75)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-600 rounded"></div>
-              <span className="text-xs text-gray-300">CRITICAL (75+)</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: '25px',
+                height: '25px',
+                borderRadius: '50%',
+                backgroundColor: '#eab308',
+                border: '3px solid white',
+              }}
+            />
+            <span className="text-xs text-gray-300">Yellow: 25-50 (MEDIUM)</span>
           </div>
-
-          {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-slate-600">
-            <div className="bg-slate-700 p-3 rounded">
-              <p className="text-xs text-gray-400">Total Wards</p>
-              <p className="text-2xl font-bold text-white">{wards.length}</p>
-            </div>
-            <div className="bg-red-900 p-3 rounded">
-              <p className="text-xs text-gray-400">Critical</p>
-              <p className="text-2xl font-bold text-red-400">
-                {wards.filter((w) => w.risk_level === 'CRITICAL').length}
-              </p>
-            </div>
-            <div className="bg-orange-900 p-3 rounded">
-              <p className="text-xs text-gray-400">High Risk</p>
-              <p className="text-2xl font-bold text-orange-400">
-                {wards.filter((w) => w.risk_level === 'HIGH').length}
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: '25px',
+                height: '25px',
+                borderRadius: '50%',
+                backgroundColor: '#ea580c',
+                border: '3px solid white',
+              }}
+            />
+            <span className="text-xs text-gray-300">Orange: 50-75 (HIGH)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: '25px',
+                height: '25px',
+                borderRadius: '50%',
+                backgroundColor: '#dc2626',
+                border: '3px solid white',
+              }}
+            />
+            <span className="text-xs text-gray-300">Red: 75+ (CRITICAL)</span>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Info Box */}
+      <div className="mt-4 bg-blue-900 border border-blue-700 rounded p-3">
+        <p className="text-xs text-blue-200">
+          <strong>ℹ️ Info:</strong> Click on each marker to view ward details including ICU pressure and recent cases.
+          Map is centered on Solapur (17.6599° N, 75.9064° E).
+        </p>
+      </div>
     </div>
   );
 };
 
 export default WardHeatmap;
+

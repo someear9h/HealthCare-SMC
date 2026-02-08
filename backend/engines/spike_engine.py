@@ -1,5 +1,6 @@
 import pandas as pd
 from engines.monthly_loader import load_monthly_health_data
+from utils.indicator_normalizer import normalize_indicator_name
 
 # ⭐ Strong thresholds for high-confidence outbreaks
 MIN_CASE_THRESHOLD = 75
@@ -41,6 +42,10 @@ def detect_outbreaks():
         .str.lower()
         .str.contains(exclude_pattern, na=False, regex=True)
     ]
+    
+    # 3. NORMALIZE indicator names to prevent duplicate aggregation
+    # This ensures 'Malaria cases', 'New malaria-cases identified', etc. all map to 'New Malaria Cases'
+    df["indicatorname"] = df["indicatorname"].apply(normalize_indicator_name)
 
     # aggregate
     grouped = (

@@ -2,16 +2,21 @@
 
 GET /analytics/predicted-capacity - Bed demand predictions
 GET /analytics/ward-risk - Ward risk heatmap
+GET /analytics/export-report - Download PDF executive report
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+import io
+from datetime import datetime
 
 from core.database import get_db
 from services.prediction_service import PredictionService
 from services.ward_risk_service import WardRiskService
+from services.report_service import ReportService
 from repositories.status_repository import StatusRepository
 
 router = APIRouter()
@@ -101,3 +106,25 @@ def get_high_risk_wards(db: Session = Depends(get_db)):
     service = WardRiskService(db)
     wards = service.get_high_risk_wards()
     return {"high_risk_wards": wards}
+
+
+@router.get("/export-report", tags=["Analytics"])
+def export_summary_report(db: Session = Depends(get_db)):
+    """Generate and download comprehensive health system PDF report.
+
+    Returns:
+        PDF file as binary stream for browser download.
+    """
+    report_service = ReportService(db)
+    pdf_bytes = report_service.generate_summary_pdf()
+    
+    # Return bytes directly using StreamingResponse with proper iterator
+    def pdf_generator():
+        yield pdf_bytes
+    
+    return StreamingResponse(
+        pdf_generator(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=SMC_Health_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"}
+    )
+

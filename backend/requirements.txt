@@ -8,3 +8,4 @@ plotly
 requests
 sqlalchemy>=2.0
 sqlalchemy
+fpdf2
