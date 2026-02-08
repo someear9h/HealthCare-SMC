@@ -8,9 +8,8 @@ GET /analytics/export-report - Download PDF executive report
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
-import io
 from datetime import datetime
 
 from core.database import get_db
@@ -116,15 +115,18 @@ def export_summary_report(db: Session = Depends(get_db)):
         PDF file as binary stream for browser download.
     """
     report_service = ReportService(db)
-    pdf_bytes = report_service.generate_summary_pdf()
+    pdf_content = report_service.generate_summary_pdf()
     
-    # Return bytes directly using StreamingResponse with proper iterator
-    def pdf_generator():
-        yield pdf_bytes
+    # Ensure content is bytes, not bytearray
+    if isinstance(pdf_content, bytearray):
+        pdf_content = bytes(pdf_content)
     
-    return StreamingResponse(
-        pdf_generator(),
+    filename = f"SMC_Health_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    return Response(
+        content=pdf_content,
+        status_code=200,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=SMC_Health_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
