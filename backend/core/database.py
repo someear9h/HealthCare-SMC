@@ -14,9 +14,13 @@ from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.pool import StaticPool
 
 # Environment-based URL for migration-ready setup
+# Default to a deterministic DB file inside the backend package so scripts
+# and the running server use the same file regardless of current working dir.
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+default_sqlite_path = os.path.join(base_dir, "health_smc.db")
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./health_smc.db"
+    f"sqlite:///{default_sqlite_path}"
 )
 
 # SQLite-specific: check_same_thread=False allows async access
