@@ -60,3 +60,5 @@ htmlcov/
 *.key
 *.md
 info.md
+
+!README.md
