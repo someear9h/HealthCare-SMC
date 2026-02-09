@@ -1,8 +1,8 @@
-# 🚑 HealthCommand
+# 🚑 CityHealth 360
 
 ## 🧠 Overview
 
-HealthCommand is a real-time municipal health operations platform engineered to provide unified visibility and predictive intelligence across distributed health facility networks. It aggregates data from hospitals, primary health centers, laboratories, and emergency response systems into a coherent event-driven analytics layer that detects disease outbreaks within minutes, predicts infrastructure crises before they occur, and enables data-driven resource allocation decisions. Built for municipal corporations managing complex health ecosystems, the system reduces outbreak detection lag from weeks to minutes and transforms reactive crisis management into proactive intelligence-driven operations.
+CityHealth 360 is a real-time municipal health operations platform engineered to provide unified visibility and predictive intelligence across distributed health facility networks. It aggregates data from hospitals, primary health centers, laboratories, and emergency response systems into a coherent event-driven analytics layer that detects disease outbreaks within minutes, predicts infrastructure crises before they occur, and enables data-driven resource allocation decisions. Built for municipal corporations managing complex health ecosystems, the system reduces outbreak detection lag from weeks to minutes and transforms reactive crisis management into proactive intelligence-driven operations.
 
 ## ✨ Key Features
 
@@ -19,7 +19,7 @@ HealthCommand is a real-time municipal health operations platform engineered to 
 
 ## 🏗 System Architecture
 
-HealthCommand is engineered as an **event-driven analytics platform** rather than a traditional CRUD transactional system. This architectural choice reflects the fundamental nature of municipal health decision-making: not data storage, but signal extraction and predictive intelligence.
+CityHealth 360 is engineered as an **event-driven analytics platform** rather than a traditional CRUD transactional system. This architectural choice reflects the fundamental nature of municipal health decision-making: not data storage, but signal extraction and predictive intelligence.
 
 **Core Design Principles:**
 
@@ -221,7 +221,7 @@ pytest tests/test_facility_status.py -v  # Run specific test file with verbose o
 
 ## 📊 Scalability Note
 
-HealthCommand is architected for horizontal scalability from pilot deployments serving a single municipality to city-wide infrastructure coordinating hundreds of health facilities. The stateless FastAPI backend enables trivial load balancing across multiple instances. The repository pattern abstracts database implementation, allowing seamless migration from SQLite (development) to PostgreSQL (production) without modifying business logic. Analytics engines operate on fixed-size rolling windows, preventing memory growth as data volumes increase. WebSocket broadcasting eliminates database polling, maintaining dashboard responsiveness even under high concurrent user load. This architectural foundation enables organic scaling as municipal health operations expand, without fundamental redesign or service interruptions.
+CityHealth 360 is architected for horizontal scalability from pilot deployments serving a single municipality to city-wide infrastructure coordinating hundreds of health facilities. The stateless FastAPI backend enables trivial load balancing across multiple instances. The repository pattern abstracts database implementation, allowing seamless migration from SQLite (development) to PostgreSQL (production) without modifying business logic. Analytics engines operate on fixed-size rolling windows, preventing memory growth as data volumes increase. WebSocket broadcasting eliminates database polling, maintaining dashboard responsiveness even under high concurrent user load. This architectural foundation enables organic scaling as municipal health operations expand, without fundamental redesign or service interruptions.
 
 ## 🔐 Reliability & Performance
 
