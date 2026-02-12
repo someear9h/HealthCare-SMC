@@ -28,8 +28,8 @@ def _bg_broadcast_ingest(payload: Dict[str, Any]) -> None:
 @router.post(
     "/",
     response_model=HealthIngestResponse,
-    summary="Ingest PHC Health Data",
-    description="Post health data from a Primary Health Center to the UHDE."
+    summary="Ingest PHC Health & Vaccination Data",
+    description="Post disease indicators and vaccination counts from a PHC to the UHDE."
 )
 async def ingest_phc_data(
     payload: HealthIngestPayload,
@@ -51,7 +51,7 @@ async def ingest_phc_data(
         return HealthIngestResponse(
             status=result.get("status", "unknown"),
             outbreak_detected=result.get("outbreak_detected", False),
-            message=f"PHC record from {payload.source_name} successfully processed",
+            message=f"PHC record and vaccination data from {payload.source_name} successfully processed",
             facility_id=payload.facility_id
         )
         

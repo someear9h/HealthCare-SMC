@@ -114,7 +114,7 @@ async def ingest_hospital_data(
         return HealthIngestResponse(
             status=result.get("status", "unknown"),
             outbreak_detected=result.get("outbreak_detected", False),
-            message=f"Record from {payload.source_name} successfully processed",
+            message=f"Health and Vaccination data from {payload.source_name} processed",
             facility_id=payload.facility_id
         )
         

@@ -47,6 +47,14 @@ class HealthIngestPayload(BaseModel):
         description="Total number of cases reported",
         ge=0
     )
+
+    vaccination_count: Optional[int] = Field(
+        default=0, 
+        example=150,
+        description="Total vaccinations administered (e.g., COVID, BCG, Polio)",
+        ge=0
+    )
+
     month: str = Field(
         ..., 
         example="Feb",
@@ -68,10 +76,20 @@ class HealthIngestPayload(BaseModel):
                 "ward": "Ward-12",
                 "indicatorname": "New RTI/STI cases identified - Male",
                 "total_cases": 42,
+                "vaccination_count": 85,
                 "month": "Feb",
                 "timestamp": "2026-02-07T10:30:00"
             }
         }
+
+    @validator("vaccination_count", pre=True)
+    def coerce_vaccination_count(cls, v):
+        if v is None:
+            return 0
+        try:
+            return int(v)
+        except Exception:
+            raise ValueError("vaccination_count must be an integer")
 
     @validator("total_cases", pre=True)
     def coerce_total_cases(cls, v):
@@ -131,6 +149,7 @@ class IngestRecord(BaseModel):
     ward: Optional[str] = None
     indicatorname: str
     total_cases: int
+    vaccination_count: Optional[int] = 0
     month: str
     timestamp: datetime
 
@@ -145,6 +164,11 @@ class IngestRecord(BaseModel):
             return int(v)
         except Exception:
             raise ValueError("total_cases must be an integer")
+        
+    @validator("vaccination_count", pre=True)
+    def coerce_vaccination_count(cls, v):
+        if v is None: return 0
+        return int(v)
 
     @validator("month")
     def month_must_be_simple(cls, v):
