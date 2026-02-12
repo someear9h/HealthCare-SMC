@@ -9,6 +9,7 @@ export function aggregateByIndicator(records = [], facilityFilter = 'All') {
       const indicator = r.indicatorname || r.indicator || 'Unknown'
       const facility = (r.facility_type || r.facilityType || 'Unknown')
       const total = Number(r.total_cases || r.total_cases || 0)
+      const vaccination = Number(r.vaccination_count || 0)
       const ts = r.timestamp ? new Date(r.timestamp) : now
 
       const hours = differenceInHours(now, ts)
@@ -21,9 +22,10 @@ export function aggregateByIndicator(records = [], facilityFilter = 'All') {
       }
 
       const key = indicator
-      if (!map.has(key)) map.set(key, { indicator: key, total: 0, breakdown: {} })
+      if (!map.has(key)) map.set(key, { indicator: key, total: 0, vaccination_count: 0, breakdown: {} })
       const entry = map.get(key)
       entry.total += total
+      entry.vaccination_count += vaccination
       entry.breakdown[facility] = (entry.breakdown[facility] || 0) + total
     } catch (e) {}
   })

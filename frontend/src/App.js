@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { getRecentLogs } from './services/api'
+import { connectWebSocket } from './services/websocket'
 import BarChartComponent from './components/BarChartComponent'
 import TimeSeriesComponent from './components/TimeSeriesComponent'
 import MapPanel from './components/MapPanel'
@@ -7,6 +8,7 @@ import KPIStrip from './components/KPIStrip'
 import BedPredictionPanel from './components/BedPredictionPanel'
 import WardHeatmap from './components/WardHeatmap'
 import AmbulanceTracker from './components/AmbulanceTracker'
+import CitizenHealthPortal from './components/CitizenHealthPortal'
 import { aggregateByIndicator } from './utils/format'
 import { format } from 'date-fns'
 
@@ -40,6 +42,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [tab, setTab] = useState('dashboard') // 'dashboard' or 'cases'
+  const [viewMode, setViewMode] = useState('admin') // 'admin' or 'citizen'
+  const [language, setLanguage] = useState(localStorage.getItem('language') || 'en')
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -60,19 +64,93 @@ export default function App() {
     return () => clearInterval(id)
   }, [fetch])
 
+  // WebSocket listener for real-time ingestion data from all three routers
+  useEffect(() => {
+    const handleWebSocketMessage = (message) => {
+      // Handle all ingestion types: hospital, lab, phc
+      const validTypes = ['ingest_hospital', 'ingest_lab', 'ingest_phc']
+      
+      if (validTypes.includes(message.type)) {
+        const payload = message.payload || {}
+        
+        // Transform WebSocket payload into records format
+        const newRecord = {
+          timestamp: message.timestamp || payload.timestamp || new Date().toISOString(),
+          indicatorname: payload.indicatorname || 'Unknown',
+          indicator: payload.indicatorname || 'Unknown',
+          total_cases: Number(payload.total_cases) || 0,
+          vaccination_count: Number(payload.vaccination_count) || 0,
+          facility_type: payload.facility_type || message.type.replace('ingest_', '').toUpperCase(),
+          facilityType: payload.facility_type || message.type.replace('ingest_', '').toUpperCase(),
+          facility_id: payload.facility_id || payload.source_name || 'unknown',
+          source_name: payload.source_name || `${message.type.replace('ingest_', '').toUpperCase()} Data`,
+          district: payload.district || 'Unknown',
+          month: payload.month || 'Current'
+        }
+        
+        // Append new record to records array (accumulate, don't overwrite)
+        setRecords((prevRecords) => [newRecord, ...prevRecords])
+        
+        // Update last updated timestamp from WebSocket message
+        setLastUpdated(new Date(message.timestamp || payload.timestamp || new Date()))
+        
+        // Log ingestion for debugging
+        console.log(`✓ ${message.type}: ${payload.indicatorname} | Cases: ${payload.total_cases} | Vaccinations: ${payload.vaccination_count}`)
+      }
+    }
+
+    const ws = connectWebSocket(handleWebSocketMessage, (error) => {
+      console.warn('WebSocket connection issue:', error)
+    })
+
+    return () => {
+      if (ws) ws.close()
+    }
+  }, [])
+
   useEffect(() => {
     const agg = aggregateByIndicator(records, filter)
+    
+    // Log chart data for debugging
+    if (agg.length > 0) {
+      console.log('📊 Chart Data (with Vaccination Counts):', agg.slice(0, 3))
+    }
+    
     setData(agg)
   }, [records, filter])
 
   const timeseries = data.slice(0, 5).map((d, i) => ({ time: `T-${i}`, value: d.total }))
 
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang)
+    localStorage.setItem('language', lang)
+  }
+
+  // Render Citizen Portal if in citizen mode
+  if (viewMode === 'citizen') {
+    return (
+      <CitizenHealthPortal 
+        onToggleView={() => setViewMode('admin')} 
+        language={language}
+        onLanguageChange={handleLanguageChange}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-gray-100">
       <header className="bg-gradient-to-r from-slate-900 to-slate-800 shadow-lg border-b border-slate-700">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold">🏥 Solapur Municipal Corporation - Command Center</h1>
-          <p className="text-sm text-gray-400">Smart Public Health Management System</p>
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">🏥 Solapur Municipal Corporation - Command Center</h1>
+            <p className="text-sm text-gray-400">Smart Public Health Management System</p>
+          </div>
+          <button
+            onClick={() => setViewMode('citizen')}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition shadow-lg"
+          >
+            👤 Switch to Citizen View
+          </button>
         </div>
       </header>
 
