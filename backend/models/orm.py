@@ -36,23 +36,41 @@ class Facility(Base):
     status_records = relationship("FacilityStatus", back_populates="facility", cascade="all, delete-orphan")
 
 
-class HealthRecord(Base):
-    """Health indicator records (outbreaks, cases, etc.) by facility.
+# ########################################################################
+# HUGE CHANGE: TRANSITION FROM BULK RECORDS TO INDIVIDUAL TRANSACTIONS
+# This solves PS 1.4: "Lack of real-time visibility" by tracking live events.
+# ########################################################################
 
-    Tracks epidemic indicators for municipal intelligence.
+class PatientTransaction(Base):
+    """Individual clinical events (Cases or Vaccinations) by facility.
+    
+    This change allows for granular 'Specialty-Aware' capacity tracking.
     """
 
-    __tablename__ = "health_records"
+    __tablename__ = "patient_transactions"
 
     id = Column(Integer, primary_key=True, index=True)
     facility_id = Column(String, ForeignKey("facilities.facility_id"), nullable=False, index=True)
-    indicator_name = Column(String, nullable=False, index=True)
-    total_cases = Column(Integer, nullable=False, default=0)
-    month = Column(String, nullable=False, index=True)  # e.g., "Feb" or "2026-02"
+    
+    # ########################################################################
+    # NEW FIELDS FOR GRANULAR INTELLIGENCE
+    # ########################################################################
+    transaction_type = Column(String, nullable=False, index=True)  # "CASE" or "VACCINATION"
+    department = Column(String, nullable=False, index=True)         # "Neurology", "Bones", etc.
+    indicator_name = Column(String, nullable=False, index=True)    # "Malaria", "COVID-19", etc.
+    # ########################################################################
+
+    # Since it's an individual patient, 'count' is typically 1 per row
+    count = Column(Integer, nullable=False, default=1)
+    
+    month = Column(String, nullable=False, index=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationship
     facility = relationship("Facility", back_populates="health_records")
+
+# Update the Facility relationship to match the new class name
+Facility.health_records = relationship("PatientTransaction", back_populates="facility", cascade="all, delete-orphan")
 
 
 class FacilityStatus(Base):
