@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # ########################################################################
+  # BACKEND SERVICE: FastAPI Intelligence Core
+  # ########################################################################
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data  # Persists CSV/SQLite health data
+      - ./backend/datasets:/app/datasets
+    environment:
+      - PORT=8000
+    restart: always
+
+  # ########################################################################
+  # FRONTEND SERVICE: React Dashboard
+  # ########################################################################
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:3001"
+    environment:
+      - REACT_APP_API_BASE=http://localhost:8000
+      - REACT_APP_WS_BASE=ws://localhost:8000
+    depends_on:
+      - backend
+    stdin_open: true # Required for react-scripts
+    restart: always
+
+networks:
+  default:
+    name: smc-health-network

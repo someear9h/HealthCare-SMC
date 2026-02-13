@@ -110,12 +110,9 @@ export default function App() {
 
   useEffect(() => {
     const agg = aggregateByIndicator(records, filter)
-    
-    // Log chart data for debugging
     if (agg.length > 0) {
-      console.log('📊 Chart Data (with Vaccination Counts):', agg.slice(0, 3))
+      console.log('BarChart data:', agg)
     }
-    
     setData(agg)
   }, [records, filter])
 
