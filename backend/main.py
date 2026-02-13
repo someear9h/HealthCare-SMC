@@ -8,6 +8,7 @@ from routers.facility_status_router import router as facility_status_router
 from routers.analytics_router import router as analytics_router
 from routers.ambulance_router import router as ambulance_router
 from seed_data import seed_appointment_test_data
+from routers.awareness import router as awareness_router
 from routers.appointment_router import router as appointment_router
 from core.database import init_db
 
@@ -35,6 +36,7 @@ app.include_router(risk_router, prefix="/risk", tags=["Risk Engine"])
 app.include_router(facility_status_router, prefix="/facility-status", tags=["Facility Status"])
 app.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 app.include_router(ambulance_router, prefix="/ambulances", tags=["Ambulances"])
+app.include_router(awareness_router)
 app.include_router(appointment_router)
 
 @app.get("/")
