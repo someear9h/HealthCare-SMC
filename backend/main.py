@@ -7,13 +7,15 @@ from routers.logs_router import router as logs_router
 from routers.facility_status_router import router as facility_status_router
 from routers.analytics_router import router as analytics_router
 from routers.ambulance_router import router as ambulance_router
-from routers.admin_services import router as admin_services_router
+from seed_data import seed_appointment_test_data
+from routers.appointment_router import router as appointment_router
 from core.database import init_db
 
 app = FastAPI(title="SMC Smart Health Intelligence API")
 
 # Initialize database (creates 'patient_transactions' table)
 init_db()
+seed_appointment_test_data() # This runs every time the app starts
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,12 +30,12 @@ app.add_middleware(
 # Removed redundant inclusions to prevent Swagger UI confusion.
 # ########################################################################
 app.include_router(patient_ingestion_router, prefix="/ingest/patient", tags=["Ingest: Clinical Events"])
-app.include_router(admin_services_router, prefix="/services", tags=["Admin: Citizen Engagement"])
 app.include_router(logs_router) # Prefix /logs is inside the router
 app.include_router(risk_router, prefix="/risk", tags=["Risk Engine"])
 app.include_router(facility_status_router, prefix="/facility-status", tags=["Facility Status"])
 app.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 app.include_router(ambulance_router, prefix="/ambulances", tags=["Ambulances"])
+app.include_router(appointment_router)
 
 @app.get("/")
 def root():

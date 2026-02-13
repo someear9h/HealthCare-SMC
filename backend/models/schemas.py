@@ -38,7 +38,7 @@ class PatientTransactionSchema(BaseModel):
                 "timestamp": "2026-02-13T20:30:00"
             }
         }
-        
+
 class HealthIngestResponse(BaseModel):
     """Response model for health data ingestion endpoint."""
     
@@ -143,3 +143,18 @@ class AppointmentSlotSchema(BaseModel):
                 "is_telemedicine_available": True
             }
         }
+
+class AppointmentCreate(BaseModel):
+    facility_id: str
+    department: str
+    preferred_time: datetime
+    appointment_type: Optional[str] = "IN_PERSON"
+
+class AvailabilityResponse(BaseModel):
+    facility_id: str
+    department: str
+    is_available: bool
+    current_load: int
+    max_capacity: int
+    suggested_slots: List[datetime]
+    message: str
