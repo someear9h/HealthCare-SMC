@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# Ensure this matches your filename (e.g., ingestion_router.py or patient_router.py)
 from routers.ingestion_router import router as patient_ingestion_router 
 from routers.risk_router import router as risk_router
 from routers.logs_router import router as logs_router
@@ -11,6 +10,8 @@ from seed_data import seed_appointment_test_data
 from routers.awareness import router as awareness_router
 from routers.appointment_router import router as appointment_router
 from core.database import init_db
+from fastapi import WebSocket, WebSocketDisconnect
+from core.ws_manager import manager
 
 app = FastAPI(title="SMC Smart Health Intelligence API")
 
@@ -18,9 +19,23 @@ app = FastAPI(title="SMC Smart Health Intelligence API")
 init_db()
 seed_appointment_test_data() # This runs every time the app starts
 
+
+@app.websocket("/ws/ingest")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Required for local React dev on port 3001
+    allow_origins=[
+        "http://localhost:5173",  # Vite default
+        "http://127.0.0.1:5173",
+        "*"                       # Fallback
+    ], # Required for local React dev on port 3001
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -99,3 +99,23 @@ class HealthRepository(BaseRepository[PatientTransaction]):
             .limit(limit)
             .all()
         )
+    
+    def get_last_n_hours_by_facility(
+        self, 
+        facility_id: str, 
+        hours: int = 6
+    ) -> List[PatientTransaction]:
+        """
+        Fetch all individual clinical events for a facility in the last N hours.
+        Used by PredictionService to calculate admission velocity.
+        """
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        return (
+            self.db.query(PatientTransaction)
+            .filter(
+                PatientTransaction.facility_id == facility_id,
+                PatientTransaction.transaction_type == "CASE",
+                PatientTransaction.timestamp >= cutoff
+            )
+            .all()
+        )

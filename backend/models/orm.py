@@ -111,24 +111,24 @@ class Ambulance(Base):
     last_updated = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
-class Appointment(Base):
-    __tablename__ = "appointments"
+# class Appointment(Base):
+#     __tablename__ = "appointments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    appointment_id = Column(String, unique=True, index=True)
+#     id = Column(Integer, primary_key=True, index=True)
+#     appointment_id = Column(String, unique=True, index=True)
     
-    # Change nullable=False to nullable=True
-    # citizen_id = Column(String, nullable=False, index=True) 
+#     # Change nullable=False to nullable=True
+#     # citizen_id = Column(String, nullable=False, index=True) 
     
-    facility_id = Column(String, ForeignKey("facilities.facility_id"), nullable=False)
-    department = Column(String, nullable=True, index=True)
-    appointment_type = Column(String, default="IN_PERSON") # IN_PERSON or TELEMEDICINE
+#     facility_id = Column(String, ForeignKey("facilities.facility_id"), nullable=False)
+#     department = Column(String, nullable=True, index=True)
+#     appointment_type = Column(String, default="IN_PERSON") # IN_PERSON or TELEMEDICINE
     
-    # Timing
-    scheduled_time = Column(DateTime, nullable=False)
-    status = Column(String, default="BOOKED") # BOOKED, COMPLETED, CANCELLED
+#     # Timing
+#     scheduled_time = Column(DateTime, nullable=False)
+#     status = Column(String, default="BOOKED") # BOOKED, COMPLETED, CANCELLED
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+#     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship
-    facility = relationship("Facility")
+#     # Relationship
+#     facility = relationship("Facility")

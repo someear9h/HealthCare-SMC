@@ -1,36 +1,36 @@
-// WebSocket service for real-time ingestion updates
-const BASE_WS = process.env.REACT_APP_WS_BASE || 'ws://localhost:8000'
+const WS_URL =
+  process.env.REACT_APP_WS_BASE ||
+  "ws://localhost:8000/ws/ingest";
 
 export function connectWebSocket(onMessage, onError) {
   try {
-    const ws = new WebSocket(`${BASE_WS}/ws`)
+    const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-      console.log('WebSocket connected')
-    }
+      console.log("WebSocket connected");
+    };
 
     ws.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data)
-        if (onMessage) onMessage(message)
-      } catch (e) {
-        console.error('Failed to parse WebSocket message:', e)
+        const message = JSON.parse(event.data);
+        if (onMessage) onMessage(message);
+      } catch (err) {
+        console.error("Invalid WS message:", err);
       }
-    }
+    };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      if (onError) onError(error)
-    }
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      if (onError) onError(err);
+    };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected')
-    }
+      console.log("WebSocket disconnected");
+    };
 
-    return ws
-  } catch (e) {
-    console.error('Failed to create WebSocket:', e)
-    if (onError) onError(e)
-    return null
+    return ws;
+  } catch (err) {
+    console.error("WS creation failed:", err);
+    return null;
   }
 }

@@ -1,82 +1,114 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from core.database import get_db
-from models.orm import PatientTransaction, Appointment
-from models.schemas import AppointmentCreate, AvailabilityResponse
 from datetime import datetime, timedelta
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy.orm import Session, relationship
+from core.database import Base, get_db
 
-router = APIRouter(prefix="/appointments", tags=["Citizen: Appointments"])
+# ########################################################################
+# 1. ORM MODELS (Database Tables)
+# Solves PS 4.1: Real-time visibility into health infrastructure.
+# ########################################################################
+class Appointment(Base):
+    __tablename__ = "appointments"
 
-@router.get("/check-availability/{facility_id}/{dept}", response_model=AvailabilityResponse)
-async def check_availability(facility_id: str, dept: str, db: Session = Depends(get_db)):
+    id = Column(Integer, primary_key=True, index=True)
+    appointment_id = Column(String, unique=True, index=True)
+    facility_id = Column(String, nullable=False)
+    department = Column(String, nullable=True, index=True)
+    appointment_type = Column(String, default="IN_PERSON")
+    scheduled_time = Column(DateTime, nullable=False)
+    status = Column(String, default="BOOKED")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# Note: We assume PatientTransaction is defined in your main models file, 
+# but we import it here to use in the load calculation logic.
+from models.orm import PatientTransaction 
+
+# ########################################################################
+# 2. SCHEMAS (Data Validation)
+# ########################################################################
+class AppointmentCreate(BaseModel):
+    facility_id: str = Field(..., example="HSP123")
+    department: str = Field(..., example="Neurology")
+    preferred_time: datetime = Field(default_factory=datetime.utcnow) # Dynamic Default
+    appointment_type: Optional[str] = "IN_PERSON"
+
+class AvailabilityResponse(BaseModel):
+    facility_id: str
+    department: str
+    is_available: bool
+    current_load: int
+    max_capacity: int
+    suggested_slots: List[datetime]
+    message: str
+
+# ########################################################################
+# 3. SERVICE LOGIC
+# ########################################################################
+FACILITY_METADATA = {
+    "HSP123": {
+        "Neurology": {"max_load": 10},
+        "Orthopedics": {"max_load": 10}
+    }
+}
+
+def calculate_clinical_load(db: Session, facility_id: str, dept: str):
     """
-    REALISTIC LOGIC:
-    Queries the database to count actual 'CASE' transactions from the last 4 hours.
+    Counts 'CASE' transactions from the LAST 4 HOURS.
+    Ensures real-time monitoring.
     """
-    # 1. Define the lookback window (Last 4 hours is standard for clinical load)
+    # FIX: Use dynamic UTC window
     window = datetime.utcnow() - timedelta(hours=4)
-
-    # 2. Query the DB for the ACTUAL count of patients ingested
-    current_load = db.query(func.count(PatientTransaction.id)).filter(
+    
+    return db.query(func.count(PatientTransaction.id)).filter(
         PatientTransaction.facility_id == facility_id,
         PatientTransaction.department == dept,
         PatientTransaction.transaction_type == "CASE",
         PatientTransaction.timestamp >= window
     ).scalar() or 0
 
-    # 3. Define capacity (In a real system, this comes from the 'Facility' table)
-    max_capacity = 10 
+# ########################################################################
+# 4. ROUTER (API Endpoints)
+# ########################################################################
+router = APIRouter(prefix="/appointments", tags=["Citizen: Appointments"])
+
+@router.get("/check-availability/{facility_id}/{dept}", response_model=AvailabilityResponse)
+async def check_availability(facility_id: str, dept: str, db: Session = Depends(get_db)):
+    """Checks live load and capacity."""
+    current_load = calculate_clinical_load(db, facility_id, dept)
     
-    # 4. Determine availability based on the LIVE load
+    # Logic: Get capacity from metadata or default to 10
+    max_capacity = FACILITY_METADATA.get(facility_id, {}).get(dept, {}).get("max_load", 10)
+    
     is_available = current_load < max_capacity
     
-    # Custom message based on load
-    if not is_available:
-        message = f"High demand in {dept}. Redirecting to nearest PHC."
-    else:
-        message = "Slots available."
+    message = "Slots available." if is_available else f"High demand in {dept}. Redirecting to PHC."
 
     return {
         "facility_id": facility_id,
         "department": dept,
         "is_available": is_available,
-        "current_load": current_load, # This will now show '1' after your ingestion
+        "current_load": current_load,
         "max_capacity": max_capacity,
-        "suggested_slots": [datetime.utcnow() + timedelta(hours=1)],
+        "suggested_slots": [datetime.utcnow() + timedelta(hours=2)],
         "message": message
     }
 
-
 @router.post("/book")
 async def book_appointment(req: AppointmentCreate, db: Session = Depends(get_db)):
-    """
-    REALISTIC BOOKING LOGIC:
-    1. Re-check availability (Safety Check)
-    2. Save using the ORM Model, not the Schema.
-    """
-    window = datetime.utcnow() - timedelta(hours=4)
-    current_load = db.query(func.count(PatientTransaction.id)).filter(
-        PatientTransaction.facility_id == req.facility_id,
-        PatientTransaction.department == req.department,
-        PatientTransaction.transaction_type == "CASE",
-        PatientTransaction.timestamp >= window
-    ).scalar() or 0
-
+    """Saves appointment if capacity permits."""
+    current_load = calculate_clinical_load(db, req.facility_id, req.department)
+    
     if current_load >= 10:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Facility {req.facility_id} is over capacity for {req.department}."
-        )
+        raise HTTPException(status_code=400, detail="Department over capacity.")
 
-    # ########################################################################
-    # THE FIX: Use the 'Appointment' ORM Model here, NOT 'AppointmentCreate'
-    # ########################################################################
     new_app = Appointment(
         appointment_id=f"APP-{int(datetime.utcnow().timestamp())}",
         facility_id=req.facility_id,
         department=req.department,
-        scheduled_time=req.preferred_time, # Map Schema field to Model field
+        scheduled_time=req.preferred_time,
         appointment_type=req.appointment_type,
         status="BOOKED"
     )
@@ -84,9 +116,4 @@ async def book_appointment(req: AppointmentCreate, db: Session = Depends(get_db)
     db.add(new_app)
     db.commit()
     db.refresh(new_app)
-    
-    return {
-        "status": "success", 
-        "appointment_id": new_app.appointment_id, 
-        "message": "Booking confirmed"
-    }
+    return {"status": "success", "appointment_id": new_app.appointment_id}
